@@ -1,0 +1,9 @@
+/target
+/downloads
+cookies.json
+queue.json
+library.json
+aria2_input.txt
+*.cbz
+*.pdf
+.DS_Store

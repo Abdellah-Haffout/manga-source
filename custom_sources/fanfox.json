@@ -1,0 +1,33 @@
+{
+  "id": "fanfox",
+  "name": "FanFox / MangaFox (English Classic)",
+  "base_url": "https://fanfox.net",
+  "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+  "search": {
+    "url_template": "{base_url}/search?title={query}",
+    "method": "GET",
+    "regex": {
+      "pattern": "(?s)<a href=\"/manga/([^/]+)/\"[^>]*>\\s*<img class=\"manga-list-4-cover\" src=\"([^\"]+)\"[^>]*>.*?<p class=\"manga-list-4-item-title\">\\s*<a [^>]*>([^<]+)</a>",
+      "id_group": 1,
+      "cover_group": 2,
+      "title_group": 3
+    }
+  },
+  "chapters": {
+    "url_template": "{base_url}/manga/{manga_id}/",
+    "method": "GET",
+    "regex": {
+      "pattern": "href=\"/manga/[^/]+/c([0-9.]+)/1\\.html\"[^>]*title=\"[^\"]*\">\\s*Ch\\u002e([0-9.]+)\\s*</a>",
+      "id_group": 1,
+      "title_group": 2
+    }
+  },
+  "pages": {
+    "url_template": "{base_url}/manga/{chapter_id}/1.html",
+    "method": "GET",
+    "regex": {
+      "pattern": "<img [^>]*src=\"([^\"]*store/manga/[^\"]+)",
+      "id_group": 1
+    }
+  }
+}

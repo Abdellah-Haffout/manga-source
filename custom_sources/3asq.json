@@ -1,0 +1,33 @@
+{
+  "id": "3asq",
+  "name": "Manga 3asq (العاشق - عربي)",
+  "base_url": "https://3asq.online",
+  "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+  "search": {
+    "url_template": "{base_url}/?s={query}&post_type=wp-manga",
+    "method": "GET",
+    "regex": {
+      "pattern": "(?s)<div class=\"tab-thumb[^\"]*\">\\s*<a href=\"https://[^/]+/manga/([^/]+)/\"[^>]*>\\s*<img [^>]*(?:src|data-src)=\"([^\"]+)\"[^>]*>.*?<h3 class=\"h4\">\\s*<a [^>]*>([^<]+)</a>",
+      "id_group": 1,
+      "cover_group": 2,
+      "title_group": 3
+    }
+  },
+  "chapters": {
+    "url_template": "{base_url}/manga/{manga_id}/ajax/chapters/",
+    "method": "POST",
+    "regex": {
+      "pattern": "href=\"https://[^/]+/manga/{manga_id}/([^/]+)/\"[^>]*>([\\s\\S]*?)</a>",
+      "id_group": 1,
+      "title_group": 2
+    }
+  },
+  "pages": {
+    "url_template": "{base_url}/manga/{chapter_id}/",
+    "method": "GET",
+    "regex": {
+      "pattern": "src=\"\\s*([^\"]+)\"[^>]*class=\"[^\"]*wp-manga-chapter-img[^\"]*",
+      "id_group": 1
+    }
+  }
+}
