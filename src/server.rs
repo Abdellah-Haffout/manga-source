@@ -49,6 +49,11 @@ pub struct SearchQuery {
 }
 
 #[derive(Deserialize)]
+pub struct LatestQuery {
+    pub source: Option<String>,
+}
+
+#[derive(Deserialize)]
 pub struct ChaptersQuery {
     pub source: Option<String>,
     pub id: String,
@@ -366,6 +371,14 @@ async fn search_manga(Query(query): Query<SearchQuery>) -> Result<Json<serde_jso
     }
 }
 
+async fn get_latest_manga(Query(query): Query<LatestQuery>) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let source = get_source(query.source.as_deref());
+    match source.get_latest().await {
+        Ok(results) => Ok(Json(serde_json::to_value(results).unwrap())),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
+    }
+}
+
 async fn get_chapters(Query(query): Query<ChaptersQuery>) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let source = get_source(query.source.as_deref());
     match source.get_chapters(&query.id, query.lang.as_deref()).await {
@@ -503,7 +516,7 @@ async fn web_app_index() -> Html<&'static str> {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manga Source - تطبيق القراءة والمكتبة وقارئ الأوفلاين</title>
+    <title>Manga Source - القائمة الرئيسية والتصفح والقراءة</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -524,7 +537,7 @@ async fn web_app_index() -> Html<&'static str> {
             border-bottom: 1px solid var(--border); padding: 1rem 2rem;
             display: flex; justify-content: space-between; align-items: center; gap: 1rem;
         }
-        .brand { font-size: 1.5rem; font-weight: 800; background: linear-gradient(135deg, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: flex; align-items: center; gap: 0.5rem; }
+        .brand { font-size: 1.5rem; font-weight: 800; background: linear-gradient(135deg, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
         
         .controls-row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
         select, input, button {
@@ -544,6 +557,9 @@ async fn web_app_index() -> Html<&'static str> {
         
         .search-box { display: flex; gap: 1rem; width: 100%; max-width: 700px; margin: 0 auto; }
         .search-box input { flex: 1; font-size: 1.1rem; padding: 0.8rem 1.2rem; }
+
+        .section-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; margin-bottom: 1rem; }
+        .section-title { font-size: 1.3rem; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 0.5rem; }
 
         .manga-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.75rem; }
         .manga-card {
@@ -605,18 +621,18 @@ async fn web_app_index() -> Html<&'static str> {
 </head>
 <body>
     <header>
-        <div class="brand">🔥 Manga Source Web UI</div>
+        <div class="brand" onclick="loadLatestManga()">🔥 Manga Source Web UI</div>
         <div class="controls-row">
             <div class="tabs">
-                <button class="tab-btn active" id="tab-search" onclick="switchTab('search')">🔍 البحث والمصادر</button>
+                <button class="tab-btn active" id="tab-search" onclick="switchTab('search')">🏠 القائمة الرئيسية وتحديثات المانجا</button>
                 <button class="tab-btn" id="tab-library" onclick="switchTab('library')">📚 المكتبة الشخصية</button>
                 <button class="tab-btn" id="tab-offline" onclick="switchTab('offline')">📁 المكونات المنزلة (أوفلاين)</button>
             </div>
             <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.88rem; cursor: pointer; color: #10b981;">
-                <input type="checkbox" id="compress-toggle" style="width: auto; cursor: pointer;"> 📦 ضغط WebP (توفير 50% المساحة)
+                <input type="checkbox" id="compress-toggle" style="width: auto; cursor: pointer;"> 📦 ضغط WebP
             </label>
             <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.88rem; cursor: pointer; color: var(--accent-glow);">
-                <input type="checkbox" id="aria2-toggle" style="width: auto; cursor: pointer;"> 🚀 تسريع التنزيل عبر aria2c
+                <input type="checkbox" id="aria2-toggle" style="width: auto; cursor: pointer;"> 🚀 تسريع aria2c
             </label>
             <select id="source-select">
                 <!-- Dynamic JSON Sources -->
@@ -627,12 +643,17 @@ async fn web_app_index() -> Html<&'static str> {
     <main>
         <div id="view-search">
             <div class="search-box">
-                <input type="text" id="search-input" placeholder="ابحث عن المانجا هنا (مثال: One Piece, Naruto...)" value="One Piece">
+                <input type="text" id="search-input" placeholder="ابحث عن مانجا محددة بالاسم...">
                 <button id="search-btn">🔍 بحث</button>
+                <button style="background: #3b82f6;" onclick="loadLatestManga()">🏠 القائمة الرئيسية</button>
             </div>
 
-            <div id="results-container" class="manga-grid" style="margin-top: 2rem;">
-                <!-- Results populated dynamically -->
+            <div class="section-header" style="margin-top: 2rem;">
+                <div class="section-title" id="grid-header-title">🔥 أحدث المانجا والتحديثات المباشرة</div>
+            </div>
+
+            <div id="results-container" class="manga-grid">
+                <!-- Results or Home Latest populated dynamically -->
             </div>
         </div>
 
@@ -690,6 +711,7 @@ async fn web_app_index() -> Html<&'static str> {
         const resultsContainer = document.getElementById('results-container');
         const libraryContainer = document.getElementById('library-container');
         const offlineContainer = document.getElementById('offline-container');
+        const gridHeaderTitle = document.getElementById('grid-header-title');
         const chaptersModal = document.getElementById('chapters-modal');
         const modalTitle = document.getElementById('modal-manga-title');
         const modalList = document.getElementById('modal-chapters-list');
@@ -723,54 +745,76 @@ async fn web_app_index() -> Html<&'static str> {
                     if (src.id === '3asq') opt.selected = true;
                     sourceSelect.appendChild(opt);
                 });
-                performSearch();
+                loadLatestManga();
             } catch (e) {
                 console.error('Failed to load sources list', e);
+            }
+        }
+
+        async function loadLatestManga() {
+            const source = sourceSelect.value;
+            searchInput.value = '';
+            gridHeaderTitle.innerText = `🔥 أحدث التحديثات والمانجا المضافة (${sourceSelect.options[sourceSelect.selectedIndex]?.text || source})`;
+            resultsContainer.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 3rem;"><div class="spinner" style="margin: 0 auto 1rem;"></div>جاري جلب قائمة أحدث المانجا من الموقع الرئيسية...</div>';
+
+            try {
+                const res = await fetch(`/api/latest?source=${source}`);
+                const data = await res.json();
+                renderMangaGrid(data);
+            } catch (e) {
+                resultsContainer.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #f87171;">خطأ أثناء جلب القائمة الرئيسية: ${e.message}</div>`;
             }
         }
 
         async function performSearch() {
             const query = searchInput.value.trim();
             const source = sourceSelect.value;
-            if (!query) return;
+            if (!query) {
+                loadLatestManga();
+                return;
+            }
 
-            resultsContainer.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 3rem;"><div class="spinner" style="margin: 0 auto 1rem;"></div>جاري استخراج النتائج والأغلفة...</div>';
+            gridHeaderTitle.innerText = `🔍 نتائج البحث عن "${query}" (${sourceSelect.options[sourceSelect.selectedIndex]?.text || source})`;
+            resultsContainer.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 3rem;"><div class="spinner" style="margin: 0 auto 1rem;"></div>جاري استخراج نتائج البحث...</div>';
 
             try {
                 const res = await fetch(`/api/search?source=${source}&q=${encodeURIComponent(query)}`);
                 const data = await res.json();
-                
-                resultsContainer.innerHTML = '';
-                if (!data || data.length === 0) {
-                    resultsContainer.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-secondary);">لم يتم العثور على نتائج.</div>';
-                    return;
-                }
-
-                data.forEach(manga => {
-                    const coverUrl = manga.cover_url ? `/api/proxy?url=${encodeURIComponent(manga.cover_url)}` : 'https://via.placeholder.com/300x400?text=No+Cover';
-                    const card = document.createElement('div');
-                    card.className = 'manga-card';
-                    card.innerHTML = `
-                        <div class="cover-box">
-                            <img class="cover-img" src="${coverUrl}" alt="${manga.title}" loading="lazy">
-                        </div>
-                        <div class="card-details">
-                            <div>
-                                <h3 class="manga-title">${manga.title}</h3>
-                                ${manga.author ? `<div class="author-tag">👤 ${manga.author}</div>` : ''}
-                                ${manga.description ? `<p class="manga-desc">${manga.description}</p>` : ''}
-                            </div>
-                            <div class="card-actions">
-                                <button onclick="fetchChapters('${manga.id}', '${manga.title.replace(/'/g, "\\'")}')">📚 الفصول</button>
-                                <button style="background: #a855f7;" onclick="addToLibrary('${manga.id}', '${manga.title.replace(/'/g, "\\'")}', '${manga.cover_url || ''}')">📌 للمكتبة</button>
-                            </div>
-                        </div>
-                    `;
-                    resultsContainer.appendChild(card);
-                });
+                renderMangaGrid(data);
             } catch (e) {
                 resultsContainer.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #f87171;">خطأ أثناء البحث: ${e.message}</div>`;
             }
+        }
+
+        function renderMangaGrid(data) {
+            resultsContainer.innerHTML = '';
+            if (!data || data.length === 0) {
+                resultsContainer.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-secondary);">لم يتم العثور على نتائج.</div>';
+                return;
+            }
+
+            data.forEach(manga => {
+                const coverUrl = manga.cover_url ? `/api/proxy?url=${encodeURIComponent(manga.cover_url)}` : 'https://via.placeholder.com/300x400?text=No+Cover';
+                const card = document.createElement('div');
+                card.className = 'manga-card';
+                card.innerHTML = `
+                    <div class="cover-box">
+                        <img class="cover-img" src="${coverUrl}" alt="${manga.title}" loading="lazy">
+                    </div>
+                    <div class="card-details">
+                        <div>
+                            <h3 class="manga-title">${manga.title}</h3>
+                            ${manga.author ? `<div class="author-tag">👤 ${manga.author}</div>` : ''}
+                            ${manga.description ? `<p class="manga-desc">${manga.description}</p>` : ''}
+                        </div>
+                        <div class="card-actions">
+                            <button onclick="fetchChapters('${manga.id}', '${manga.title.replace(/'/g, "\\'")}')">📚 الفصول</button>
+                            <button style="background: #a855f7;" onclick="addToLibrary('${manga.id}', '${manga.title.replace(/'/g, "\\'")}', '${manga.cover_url || ''}')">📌 للمكتبة</button>
+                        </div>
+                    </div>
+                `;
+                resultsContainer.appendChild(card);
+            });
         }
 
         async function loadOfflineDownloads() {
@@ -1017,7 +1061,7 @@ async fn web_app_index() -> Html<&'static str> {
 
         searchBtn.addEventListener('click', performSearch);
         searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') performSearch(); });
-        sourceSelect.addEventListener('change', performSearch);
+        sourceSelect.addEventListener('change', loadLatestManga);
         
         loadSourcesList();
     </script>
@@ -1107,6 +1151,7 @@ pub async fn start_server(port: u16) -> Result<()> {
         .route("/", get(web_app_index))
         .route("/api/sources", get(list_sources))
         .route("/api/search", get(search_manga))
+        .route("/api/latest", get(get_latest_manga))
         .route("/api/chapters", get(get_chapters))
         .route("/api/pages", get(get_pages))
         .route("/api/proxy", get(proxy_image))

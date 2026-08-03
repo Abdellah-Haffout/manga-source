@@ -32,6 +32,7 @@ pub struct JsonSourceConfig {
     pub base_url: String,
     pub user_agent: Option<String>,
     pub search: RequestStep,
+    pub latest: Option<RequestStep>,
     pub chapters: RequestStep,
     pub pages: RequestStep,
 }
@@ -116,6 +117,56 @@ impl MangaSource for JsonSource {
             };
 
             let cover_url = if let Some(grp) = self.config.search.regex.cover_group {
+                cap.get(grp).map(|m| m.as_str().trim().to_string())
+            } else {
+                None
+            };
+
+            if !id.is_empty() && seen.insert(id.to_string()) {
+                results.push(Manga {
+                    id: id.to_string(),
+                    title,
+                    description: None,
+                    cover_url,
+                    author: None,
+                });
+            }
+        }
+
+        Ok(results)
+    }
+
+    async fn get_latest(&self) -> Result<Vec<Manga>> {
+        let step = self.config.latest.as_ref().unwrap_or(&self.config.search);
+        let url = step
+            .url_template
+            .replace("{base_url}", &self.config.base_url)
+            .replace("{query}", "");
+
+        let req = match step.method.as_deref().unwrap_or("GET").to_uppercase().as_str() {
+            "POST" => self.client.post(&url),
+            _ => self.client.get(&url),
+        };
+
+        let html = req.send().await?.text().await?;
+        let re = Regex::new(&step.regex.pattern)?;
+
+        let mut results = Vec::new();
+        let mut seen = HashSet::new();
+
+        for cap in re.captures_iter(&html) {
+            let id = cap
+                .get(step.regex.id_group)
+                .map(|m| m.as_str())
+                .unwrap_or("");
+
+            let title = if let Some(grp) = step.regex.title_group {
+                cap.get(grp).map(|m| m.as_str().trim().to_string()).unwrap_or_else(|| id.to_string())
+            } else {
+                id.to_string()
+            };
+
+            let cover_url = if let Some(grp) = step.regex.cover_group {
                 cap.get(grp).map(|m| m.as_str().trim().to_string())
             } else {
                 None

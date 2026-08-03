@@ -172,6 +172,8 @@ enum QueueCommands {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Display latest updated manga from homepage without search query
+    Latest,
     /// Search for manga title across sources
     Search {
         /// Manga title to search for
@@ -295,6 +297,24 @@ async fn main() -> Result<()> {
     match cli.command {
         Commands::Server { port } => {
             server::start_server(port).await?;
+        }
+        Commands::Latest => {
+            let source = get_source_from_cli(&cli.source, cli.custom_source.as_ref());
+            println!("Fetching latest updated manga from {}...", source.name());
+            let results = source.get_latest().await?;
+            if results.is_empty() {
+                println!("No latest manga found.");
+            } else {
+                println!("\nFound {} latest manga:\n", results.len());
+                for (idx, m) in results.iter().enumerate() {
+                    println!("{}. {} (ID: {})", idx + 1, m.title, m.id);
+                    if let Some(desc) = &m.description {
+                        let short_desc: String = desc.chars().take(80).collect();
+                        println!("   {}", short_desc.replace('\n', " "));
+                    }
+                    println!();
+                }
+            }
         }
         Commands::Queue { command } => match command {
             QueueCommands::List => {

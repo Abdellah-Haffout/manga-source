@@ -129,6 +129,47 @@ impl MangaSource for MangaDexSource {
         Ok(mangas)
     }
 
+    async fn get_latest(&self) -> Result<Vec<Manga>> {
+        let url = format!("{}/manga", self.base_url);
+        let resp = self
+            .client
+            .get(&url)
+            .query(&[("limit", "20"), ("order[latestUploadedChapter]", "desc")])
+            .send()
+            .await?
+            .json::<MangaListResponse>()
+            .await?;
+
+        let mangas = resp
+            .data
+            .into_iter()
+            .map(|item| {
+                let title = item
+                    .attributes
+                    .title
+                    .get("en")
+                    .cloned()
+                    .or_else(|| item.attributes.title.values().next().cloned())
+                    .unwrap_or_else(|| "Unknown Title".to_string());
+
+                let description = item
+                    .attributes
+                    .description
+                    .and_then(|desc| desc.get("en").cloned().or_else(|| desc.values().next().cloned()));
+
+                Manga {
+                    id: item.id,
+                    title,
+                    description,
+                    cover_url: None,
+                    author: None,
+                }
+            })
+            .collect();
+
+        Ok(mangas)
+    }
+
     async fn get_chapters(&self, manga_id: &str, lang: Option<&str>) -> Result<Vec<Chapter>> {
         let url = format!("{}/manga/{}/feed", self.base_url, manga_id);
         let target_lang = lang.unwrap_or("en");
