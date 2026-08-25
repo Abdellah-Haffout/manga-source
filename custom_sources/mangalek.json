@@ -1,11 +1,11 @@
 {
   "id": "mangalek",
   "name": "Manga-Lek (مانجا ليك - عربي)",
-  "base_url": "https://manga-lek.net",
+  "base_url": "https://mangalik.net",
   "languages": ["ar"],
   "is_nsfw": false,
   "tags": ["arabic", "wp-manga", "translated", "manga", "manhwa"],
-  "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+  "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   "search": {
     "url_template": "{base_url}/?s={query}&post_type=wp-manga",
     "method": "GET",
@@ -29,9 +29,9 @@
     "url_template": "{base_url}/",
     "method": "GET",
     "regex": {
-      "item_pattern": "(?s)<div class=\"page-item-detail manga\\s*[^\"]*\">(.*?)</div>\\s*<!-- \\.page-item-detail -->",
+      "item_pattern": "split:<div class=\"page-item-detail manga",
       "id_regex": "href=\"https?://[^/]+/manga/([^/]+)/\"",
-      "title_regex": "(?s)<div class=\"post-title[^\"]*\">.*?<a href=\"https?://[^/]+/manga/[^/]+/\">([^<]+)</a>",
+      "title_regex": "(?s)<div class=\"post-title[^\"]*\">.*?<a [^>]*>([^<]+)</a>",
       "cover_regex": "<img [^>]*(?:src|data-src)=\"([^\"]+)\"",
       "rating_regex": "class=\"score font-meta total_votes\">([0-9.]+)",
       "views_regex": "<span class=\"views\"><i class=\"fa fa-eye\"></i>\\s*([^<]+)</span>",
@@ -44,7 +44,7 @@
     "url_template": "{base_url}/manga/{manga_id}/ajax/chapters/",
     "method": "POST",
     "regex": {
-      "pattern": "href=\"https://[^/]+/manga/{manga_id}/([^/]+)/\"[^>]*>([\\s\\S]*?)</a>",
+      "pattern": "href=\"https?://[^/]+/manga/{manga_id}/([^/]+)/\"[^>]*>([\\s\\S]*?)</a>",
       "id_group": 1,
       "title_group": 2
     }

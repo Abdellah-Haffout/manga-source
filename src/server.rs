@@ -820,8 +820,8 @@ async fn web_app_index() -> Html<&'static str> {
                 <div class="filter-group">
                     <span class="filter-label">🌐 تصفية المصادر حسب اللغة:</span>
                     <select id="lang-filter" onchange="onFilterChange()">
-                        <option value="all">الكل (All Languages)</option>
-                        <option value="ar" selected>🇸🇦 العربية (Arabic)</option>
+                        <option value="all" selected>🌐 الكل (All Languages)</option>
+                        <option value="ar">🇸🇦 العربية (Arabic)</option>
                         <option value="en">🇬🇧 English</option>
                     </select>
 
@@ -1581,9 +1581,9 @@ async fn web_app_index() -> Html<&'static str> {
         function closeModal() { chaptersModal.classList.remove('active'); }
         function closeReader() { readerView.classList.remove('active'); }
 
-        searchBtn.addEventListener('click', performSearch);
-        searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') performSearch(); });
-        sourceSelect.addEventListener('change', loadLatestManga);
+        searchBtn.addEventListener('click', applyFilters);
+        searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') applyFilters(); });
+        sourceSelect.addEventListener('change', onSourceChange);
         
         loadSourcesList();
     </script>

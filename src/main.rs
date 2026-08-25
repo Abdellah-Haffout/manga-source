@@ -148,6 +148,12 @@ enum CookiesCommands {
         #[arg(short, long)]
         domain: String,
     },
+    /// Launch browser (Brave/Chrome) to solve Cloudflare and automatically capture cookies & User-Agent
+    Browser {
+        /// Target domain name or URL (e.g. mangafire.to or mangalik.net)
+        #[arg(short, long)]
+        domain: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -291,6 +297,11 @@ enum Commands {
     },
     /// List available sources
     Sources,
+    /// Launch real browser (Brave/Chrome) to solve Cloudflare and automatically save cookies & User-Agent into cookies.json
+    Bypass {
+        /// Target domain name or URL (e.g. mangafire.to, mangalik.net)
+        domain: String,
+    },
 }
 
 fn get_source_from_cli(name: &str, custom_path: Option<&PathBuf>) -> Box<dyn MangaSource> {
@@ -375,7 +386,10 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     if cli.bypass {
-        BrowserSession::launch_interactive_bypass("https://mangadex.org")?;
+        let source = get_source_from_cli(&cli.source, cli.custom_source.as_ref());
+        let base = source.base_url();
+        let target = if base.is_empty() { "https://mangadex.org" } else { base };
+        BrowserSession::launch_interactive_bypass(target).await?;
     }
 
     match cli.command {
@@ -479,6 +493,9 @@ async fn main() -> Result<()> {
                 } else {
                     println!("No session found for domain '{}'.", domain);
                 }
+            }
+            CookiesCommands::Browser { domain } => {
+                browser::BrowserSession::launch_interactive_bypass(&domain).await?;
             }
         },
         Commands::Library { command } => match command {
@@ -808,6 +825,9 @@ async fn main() -> Result<()> {
                     eprintln!("Failed to download Ch. {}: {}", ch.chapter_number, e);
                 }
             }
+        }
+        Commands::Bypass { domain } => {
+            browser::BrowserSession::launch_interactive_bypass(&domain).await?;
         }
     }
 

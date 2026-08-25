@@ -142,11 +142,18 @@ impl JsonSource {
 
         let mut headers = reqwest::header::HeaderMap::new();
         store.apply_headers_for_url(&config.base_url, &mut headers);
+        if !headers.contains_key(reqwest::header::ACCEPT) {
+            headers.insert(reqwest::header::ACCEPT, reqwest::header::HeaderValue::from_static("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"));
+        }
+        if !headers.contains_key(reqwest::header::ACCEPT_LANGUAGE) {
+            headers.insert(reqwest::header::ACCEPT_LANGUAGE, reqwest::header::HeaderValue::from_static("en-US,en;q=0.9,ar;q=0.8"));
+        }
 
         let client = Client::builder()
             .user_agent(ua)
             .default_headers(headers)
             .danger_accept_invalid_certs(true)
+            .timeout(std::time::Duration::from_secs(20))
             .build()?;
 
         Ok(Self { config, client })
@@ -726,46 +733,68 @@ impl MangaSource for JsonSource {
 
     async fn filter_manga(&self, filter: &MangaFilter) -> Result<Vec<Manga>> {
         let base = self.config.base_url.trim_end_matches('/');
-        let order_param = match filter.order_by.as_deref().unwrap_or("latest") {
-            "rating" => "rating",
-            "views" | "popular" => "views",
-            "alphabet" => "alphabet",
-            "newest" => "new-manga",
-            _ => "latest",
+        let is_wpmanga = self.config.tags.iter().any(|t| t.to_lowercase() == "wp-manga")
+            || self.config.search.url_template.contains("wp-manga");
+
+        let (mut url, step_to_use) = if let Some(q) = &filter.query {
+            let u = self.config.search.url_template
+                .replace("{base_url}", base)
+                .replace("{query}", &q.replace(' ', "+"));
+            (u, &self.config.search)
+        } else if let Some(latest_step) = &self.config.latest {
+            let u = latest_step.url_template
+                .replace("{base_url}", base)
+                .replace("{query}", "");
+            (u, latest_step)
+        } else if is_wpmanga {
+            let order_param = match filter.order_by.as_deref().unwrap_or("latest") {
+                "rating" => "rating",
+                "views" | "popular" => "views",
+                "alphabet" => "alphabet",
+                "newest" => "new-manga",
+                _ => "latest",
+            };
+            let u = format!("{}/?s=&post_type=wp-manga&m_orderby={}", base, order_param);
+            (u, &self.config.search)
+        } else {
+            let u = self.config.search.url_template
+                .replace("{base_url}", base)
+                .replace("{query}", "");
+            (u, &self.config.search)
         };
 
-        let mut url = format!("{}/?s={}&post_type=wp-manga&m_orderby={}", 
-            base, 
-            filter.query.as_deref().unwrap_or("").replace(' ', "+"),
-            order_param
-        );
-
-        if let Some(genre) = &filter.genre {
-            let g_lower = genre.trim().to_lowercase();
-            if !g_lower.is_empty() && g_lower != "all" {
-                let slug = WP_MANGA_GENRES.iter().find(|(k, label)| *k == g_lower || label.to_lowercase().contains(&g_lower))
-                    .map(|(k, _)| *k)
-                    .unwrap_or(g_lower.as_str());
-                url.push_str(&format!("&genre%5B%5D={}", slug));
+        if is_wpmanga {
+            if let Some(genre) = &filter.genre {
+                let g_lower = genre.trim().to_lowercase();
+                if !g_lower.is_empty() && g_lower != "all" {
+                    let slug = WP_MANGA_GENRES.iter().find(|(k, label)| *k == g_lower || label.to_lowercase().contains(&g_lower))
+                        .map(|(k, _)| *k)
+                        .unwrap_or(g_lower.as_str());
+                    url.push_str(&format!("&genre%5B%5D={}", slug));
+                }
             }
-        }
 
-        if let Some(st) = &filter.status {
-            let s_lower = st.trim().to_lowercase();
-            if s_lower == "ongoing" || s_lower == "مستمرة" {
-                url.push_str("&status%5B%5D=on-going");
-            } else if s_lower == "completed" || s_lower == "مكتملة" {
-                url.push_str("&status%5B%5D=completed");
+            if let Some(st) = &filter.status {
+                let s_lower = st.trim().to_lowercase();
+                if s_lower == "ongoing" || s_lower == "مستمرة" {
+                    url.push_str("&status%5B%5D=on-going");
+                } else if s_lower == "completed" || s_lower == "مكتملة" {
+                    url.push_str("&status%5B%5D=completed");
+                }
             }
         }
 
         let req = self.client.get(&url);
         let html = req.send().await?.text().await?;
-        let mut mangas = self.extract_manga_from_html(&html, &self.config.search)?;
+        let mut mangas = self.extract_manga_from_html(&html, step_to_use)?;
 
         if mangas.is_empty() {
-            if let Some(latest_step) = &self.config.latest {
-                mangas = self.extract_manga_from_html(&html, latest_step)?;
+            if std::ptr::eq(step_to_use, &self.config.search) {
+                if let Some(latest_step) = &self.config.latest {
+                    mangas = self.extract_manga_from_html(&html, latest_step)?;
+                }
+            } else {
+                mangas = self.extract_manga_from_html(&html, &self.config.search)?;
             }
         }
 
@@ -847,15 +876,17 @@ impl MangaSource for JsonSource {
                 .to_string();
 
             if !ch_id.is_empty() && seen.insert(ch_id.to_string()) {
-                let full_id = if ch_id.starts_with(manga_id) {
+                let full_id = if ch_id.starts_with(manga_id) || ch_id.contains('/') {
                     ch_id.to_string()
                 } else {
                     format!("{}/{}", manga_id, ch_id)
                 };
 
+                let ch_num = clean_num;
+
                 chapters.push(Chapter {
                     id: full_id,
-                    chapter_number: clean_num,
+                    chapter_number: ch_num,
                     title: title_str,
                     language: self.config.languages.first().cloned(),
                     scanlator: None,

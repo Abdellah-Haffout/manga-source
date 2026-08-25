@@ -10,13 +10,13 @@
     "url_template": "{base_url}/?s={query}&post_type=wp-manga",
     "method": "GET",
     "regex": {
-      "item_pattern": "(?s)<div class=\"row c-tabs-item__content\">(.*?)(?=<div class=\"row c-tabs-item__content\"|<div class=\"wp-pagenavi\"|</div>\\s*</div>\\s*</div>\\s*</div>\\s*</div>)",
-      "id_regex": "href=\"https://[^/]+/manga/([^/]+)/\"",
-      "title_regex": "<h3 class=\"h4\">\\s*<a [^>]*>([^<]+)</a>",
+      "item_pattern": "split:<div class=\"row c-tabs-item__content\">",
+      "id_regex": "href=\"https?://[^/]+/manga/([^/]+)/\"",
+      "title_regex": "(?s)<h3 class=\"h4\">\\s*<a [^>]*>([^<]+)</a>",
       "cover_regex": "<img [^>]*(?:src|data-src)=\"([^\"]+)\"",
       "rating_regex": "class=\"score font-meta total_votes\">([0-9.]+)",
       "views_regex": "<span class=\"views\"><i class=\"fa fa-eye\"></i>\\s*([^<]+)</span>",
-      "latest_chapter_regex": "latest-chap.*?<span class=\"font-meta chapter\"><a [^>]*>([^<]+)</a>"
+      "latest_chapter_regex": "(?s)latest-chap.*?<span class=\"font-meta chapter\"><a [^>]*>([^<]+)</a>"
     }
   },
   "chapters": {

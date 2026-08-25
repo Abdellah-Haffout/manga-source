@@ -10,17 +10,20 @@
     "url_template": "{base_url}/search?q={query}",
     "method": "GET",
     "regex": {
-      "pattern": "(?s)<a href=\"/manga/([^\"]+)\"[^>]*>\\s*<img [^>]*data-src=\"([^\"]+)\"[^>]*>.*?<div class=\"leading-tight\">\\s*<a [^>]*>([^<]+)</a>",
-      "id_group": 1,
-      "cover_group": 2,
-      "title_group": 3
+      "item_pattern": "split:<figure class=\"w-full h-52",
+      "id_regex": "href=\"/manga/([^\"\\s]+)\"",
+      "cover_regex": "data-src=\"([^\"]+)\"",
+      "title_regex": "(?s)class=\"[^\"]*font-black[^\"]*\">\\s*([^<]+)</div>",
+      "genres_regex": "class=\"[^\"]*bg-card[^\"]*\">([^<]+)</div>",
+      "year_regex": "bg-orange-500[^\"]*\">([0-9]+)</div>",
+      "status_regex": "bg-green-500[^\"]*\">([^<]+)</div>"
     }
   },
   "chapters": {
     "url_template": "{base_url}/manga/{manga_id}",
     "method": "GET",
     "regex": {
-      "pattern": "href=\"/chapters/([^/]+)/[^\"]+\"[^>]*>\\s*Chapter\\s*([0-9.]+)\\s*</a>",
+      "pattern": "href=\"/chapters/([^\"]+)\"[^>]*>\\s*(?:Chapter\\s*)?([0-9.]+)\\s*</a>",
       "id_group": 1,
       "title_group": 2
     }
@@ -29,7 +32,7 @@
     "url_template": "{base_url}/chapters/{chapter_id}",
     "method": "GET",
     "regex": {
-      "pattern": "data-src=\"([^\"]+)\"[^>]*class=\"[^\"]*js-page",
+      "pattern": "<img [^>]*class=\"[^\"]*js-page[^\"]*\"[^>]*data-src=\"([^\"]+)\"|data-src=\"([^\"]+)\"[^>]*class=\"[^\"]*js-page[^\"]*\"",
       "id_group": 1
     }
   }

@@ -1,0 +1,36 @@
+{
+  "id": "mgread",
+  "name": "MGRead (Global Manhwa)",
+  "base_url": "https://mgread.io",
+  "languages": ["en"],
+  "is_nsfw": false,
+  "tags": ["english", "manhwa", "webtoon"],
+  "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "search": {
+    "url_template": "{base_url}/?s={query}",
+    "method": "GET",
+    "regex": {
+      "item_pattern": "split:href=https://mgread.io/manga/",
+      "id_regex": "^([^/]+)/",
+      "cover_regex": "src=([^\\s>]+)",
+      "title_regex": "(?s)<h2 [^>]*>\\s*<a [^>]*>([^<]+)</a>"
+    }
+  },
+  "chapters": {
+    "url_template": "{base_url}/manga/{manga_id}/",
+    "method": "GET",
+    "regex": {
+      "pattern": "href=https://mgread.io/manga/[^/]+/(chapter-[0-9.]+)/",
+      "id_group": 1,
+      "title_group": 1
+    }
+  },
+  "pages": {
+    "url_template": "{base_url}/manga/{chapter_id}/",
+    "method": "GET",
+    "regex": {
+      "pattern": "(?:data-original-src|src)=(https://mg\\.mgread\\.io/[^\\s>]+)",
+      "id_group": 1
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "mangafire",
+  "name": "MangaFire (mangafire.to)",
+  "base_url": "https://mangafire.to",
+  "languages": ["en", "ar", "ja", "es", "fr"],
+  "is_nsfw": false,
+  "tags": ["english", "global", "manga", "manhwa", "scans"],
+  "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "search": {
+    "url_template": "{base_url}/filter?keyword={query}",
+    "method": "GET",
+    "regex": {
+      "item_pattern": "split:<div class=\"unit\">",
+      "id_regex": "href=\"/manga/([^\"\\s]+)\"",
+      "cover_regex": "<img [^>]*(?:src|data-src)=\"([^\"]+)\"",
+      "title_regex": "(?s)<a href=\"/manga/[^\"]+\"[^>]*>\\s*([^<]+)\\s*</a>",
+      "latest_chapter_regex": "href=\"/read/[^\"]*chapter-([0-9.]+)\"",
+      "type_regex": "<span class=\"type\">([^<]+)</span>"
+    }
+  },
+  "chapters": {
+    "url_template": "{base_url}/manga/{manga_id}",
+    "method": "GET",
+    "regex": {
+      "pattern": "href=\"/read/[^/]+/(?:en|ar|ja|es|fr)/([^\"]+)\"[^>]*>(?:Chapter\\s*)?([0-9.]+)",
+      "id_group": 1,
+      "title_group": 2
+    }
+  },
+  "pages": {
+    "url_template": "{base_url}/read/{chapter_id}",
+    "method": "GET",
+    "regex": {
+      "pattern": "(?:data-url|src)=\"([^\"]+(?:\\.jpg|\\.jpeg|\\.png|\\.webp)[^\"]*)\"",
+      "id_group": 1
+    }
+  }
+}
