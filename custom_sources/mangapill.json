@@ -1,13 +1,16 @@
 {
   "id": "mangapill",
-  "name": "MangaPill (English)",
+  "name": "Mangapill (Fast High-Quality Manga)",
   "base_url": "https://mangapill.com",
+  "languages": ["en"],
+  "is_nsfw": false,
+  "tags": ["english", "manga", "fast", "scans"],
   "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
   "search": {
-    "url_template": "{base_url}/quick-search?q={query}",
+    "url_template": "{base_url}/search?q={query}",
     "method": "GET",
     "regex": {
-      "pattern": "(?s)<a href=\"/manga/([^\"]+)\"[^>]*>.*?<img [^>]*(?:src|data-src)=\"([^\"]+)\"[^>]*>.*?<div class=\"[^\"]*font-bold[^\"]*\">([^<]+)</div>",
+      "pattern": "(?s)<a href=\"/manga/([^\"]+)\"[^>]*>\\s*<img [^>]*data-src=\"([^\"]+)\"[^>]*>.*?<div class=\"leading-tight\">\\s*<a [^>]*>([^<]+)</a>",
       "id_group": 1,
       "cover_group": 2,
       "title_group": 3
@@ -17,7 +20,7 @@
     "url_template": "{base_url}/manga/{manga_id}",
     "method": "GET",
     "regex": {
-      "pattern": "<a href=\"/chapters/([^\"]+)\"[^>]*>\\s*Chapter\\s+([0-9.]+)\\s*</a>",
+      "pattern": "href=\"/chapters/([^/]+)/[^\"]+\"[^>]*>\\s*Chapter\\s*([0-9.]+)\\s*</a>",
       "id_group": 1,
       "title_group": 2
     }
@@ -26,7 +29,7 @@
     "url_template": "{base_url}/chapters/{chapter_id}",
     "method": "GET",
     "regex": {
-      "pattern": "<img [^>]*data-src=\"([^\"]+)\"[^>]*class=\"[^\"]*js-page[^\"]*",
+      "pattern": "data-src=\"([^\"]+)\"[^>]*class=\"[^\"]*js-page",
       "id_group": 1
     }
   }

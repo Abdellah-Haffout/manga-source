@@ -1,32 +1,35 @@
 {
   "id": "likemanga",
-  "name": "LikeManga (like-manga.net - عربي)",
-  "base_url": "https://like-manga.net",
+  "name": "LikeManga (Global Manhwa)",
+  "base_url": "https://likemanga.io",
+  "languages": ["en"],
+  "is_nsfw": false,
+  "tags": ["english", "manhwa", "webtoon"],
   "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
   "search": {
-    "url_template": "{base_url}/?s={query}&post_type=wp-manga",
+    "url_template": "{base_url}/search?q={query}",
     "method": "GET",
     "regex": {
-      "pattern": "(?s)<div class=\"tab-thumb[^\"]*\">\\s*<a href=\"https://[^/]+/manga/([^/]+)/\"[^>]*>\\s*<img [^>]*(?:src|data-src)=\"([^\"]+)\"[^>]*>.*?<h3 class=\"h4\">\\s*<a [^>]*>([^<]+)</a>",
+      "pattern": "(?s)<div class=\"book-item\">\\s*<a href=\"/manga/([^\"]+)\"[^>]*>\\s*<img [^>]*src=\"([^\"]+)\"[^>]*>.*?<div class=\"title\">\\s*<a [^>]*>([^<]+)</a>",
       "id_group": 1,
       "cover_group": 2,
       "title_group": 3
     }
   },
   "chapters": {
-    "url_template": "{base_url}/manga/{manga_id}/ajax/chapters/",
-    "method": "POST",
+    "url_template": "{base_url}/manga/{manga_id}",
+    "method": "GET",
     "regex": {
-      "pattern": "href=\"https://[^/]+/manga/{manga_id}/([^/]+)/\"[^>]*>([\\s\\S]*?)</a>",
+      "pattern": "href=\"/manga/[^/]+/chapter-([0-9.]+)\"[^>]*title=\"([^\"]*)\"",
       "id_group": 1,
       "title_group": 2
     }
   },
   "pages": {
-    "url_template": "{base_url}/manga/{chapter_id}/",
+    "url_template": "{base_url}/manga/{chapter_id}",
     "method": "GET",
     "regex": {
-      "pattern": "src=\"\\s*([^\"]+)\"[^>]*class=\"[^\"]*wp-manga-chapter-img[^\"]*",
+      "pattern": "src=\"([^\"]*manga-images/[^\"]+)\"",
       "id_group": 1
     }
   }

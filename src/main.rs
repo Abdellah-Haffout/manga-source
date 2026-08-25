@@ -15,7 +15,7 @@ use cookies::{CookieSession, CookieStore};
 use downloader::Downloader;
 use indicatif::MultiProgress;
 use library::{LibraryItem, LibraryStore};
-use models::{DownloadOptions, OutputFormat};
+use models::{DownloadOptions, MangaFilter, OutputFormat};
 use queue::QueueStore;
 use sources::json_source::JsonSource;
 use sources::mangadex::MangaDexSource;
@@ -28,14 +28,14 @@ use std::path::PathBuf;
 #[command(about = "Kotatsu-dl clone in Rust for downloading & reading manga", long_about = None)]
 struct Cli {
     /// Select manga source provider (mangadex, or any custom JSON source id like 3asq, mangalek, etc.)
-    #[arg(short = 's', long, default_value = "mangadex", global = true)]
+    #[arg(short, long, default_value = "3asq")]
     source: String,
 
-    /// Path to a custom JSON source file (e.g. "./custom_sources/my_site.json")
-    #[arg(long, global = true)]
+    /// Path to a custom JSON source definition file
+    #[arg(short, long)]
     custom_source: Option<PathBuf>,
 
-    /// Pass raw cookie string for Cloudflare clearance (e.g. "cf_clearance=xxx")
+    /// Pass raw cookie string for Cloudflare clearance
     #[arg(long, global = true)]
     cookie: Option<String>,
 
@@ -174,10 +174,44 @@ enum QueueCommands {
 enum Commands {
     /// Display latest updated manga from homepage without search query
     Latest,
+    /// List all available genres, categories, and sort orders for the selected source
+    Genres,
     /// Search for manga title across sources
     Search {
         /// Manga title to search for
         query: String,
+    },
+    /// Advanced Filter & Sort manga across genres, status, and order
+    Filter {
+        /// Search keyword / title
+        #[arg(short, long)]
+        query: Option<String>,
+
+        /// Filter by genre / category (e.g. "action", "fantasy", "comedy")
+        #[arg(short, long)]
+        genre: Option<String>,
+
+        /// Sort order ("latest", "rating", "views", "alphabet", "newest")
+        #[arg(short, long, default_value = "latest")]
+        order: String,
+
+        /// Status filter ("ongoing", "completed", "hiatus", "all")
+        #[arg(short, long)]
+        status: Option<String>,
+
+        /// Manga type filter ("manga", "manhwa", "manhua")
+        #[arg(short = 't', long)]
+        manga_type: Option<String>,
+
+        /// Include 18+ Adult NSFW content
+        #[arg(long)]
+        nsfw: bool,
+    },
+    /// Display full details, synopsis, ratings, and stats for a manga
+    Info {
+        /// Manga ID
+        #[arg(short, long)]
+        id: String,
     },
     /// List available chapters for a manga ID
     Chapters {
@@ -286,6 +320,56 @@ fn get_source_from_cli(name: &str, custom_path: Option<&PathBuf>) -> Box<dyn Man
     Box::new(MangaDexSource::new())
 }
 
+fn print_manga_details(idx: usize, m: &models::Manga) {
+    println!("{}. {} (ID: {})", idx + 1, m.title, m.id);
+    if let Some(alts) = &m.alt_titles {
+        if !alts.is_empty() {
+            println!("   Alternative: {}", alts.join(" | "));
+        }
+    }
+
+    let mut meta_parts = Vec::new();
+    if let Some(r) = m.rating {
+        meta_parts.push(format!("⭐ Rating: {:.1}/5", r));
+    }
+    if let Some(v) = &m.views {
+        meta_parts.push(format!("👁️ Views: {}", v));
+    }
+    if let Some(s) = &m.status {
+        meta_parts.push(format!("🟢 Status: {}", s));
+    }
+    if let Some(ch) = &m.latest_chapter {
+        meta_parts.push(format!("📌 Latest: Ch. {}", ch));
+    }
+    if let Some(up) = &m.updated_at {
+        meta_parts.push(format!("🕒 Updated: {}", up));
+    }
+    if m.is_nsfw {
+        meta_parts.push("🔞 18+ Adult".to_string());
+    }
+
+    if !meta_parts.is_empty() {
+        println!("   {}", meta_parts.join(" | "));
+    }
+
+    if let Some(genres) = &m.genres {
+        if !genres.is_empty() {
+            println!("   Genres: {}", genres.join(", "));
+        }
+    }
+    if let Some(tags) = &m.tags {
+        if !tags.is_empty() {
+            println!("   Tags: {}", tags.join(", "));
+        }
+    }
+
+    if let Some(desc) = &m.description {
+        let short_desc: String = desc.chars().take(120).collect();
+        println!("   {}", short_desc.replace('\n', " "));
+    }
+    println!();
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -307,12 +391,7 @@ async fn main() -> Result<()> {
             } else {
                 println!("\nFound {} latest manga:\n", results.len());
                 for (idx, m) in results.iter().enumerate() {
-                    println!("{}. {} (ID: {})", idx + 1, m.title, m.id);
-                    if let Some(desc) = &m.description {
-                        let short_desc: String = desc.chars().take(80).collect();
-                        println!("   {}", short_desc.replace('\n', " "));
-                    }
-                    println!();
+                    print_manga_details(idx, m);
                 }
             }
         }
@@ -500,7 +579,14 @@ async fn main() -> Result<()> {
         Commands::Sources => {
             let source = get_source_from_cli(&cli.source, cli.custom_source.as_ref());
             println!("Available Manga Sources (Selected: {}):", source.name());
-            println!("  - mangadex   (MangaDex API v5 - Global Multi-Language API)");
+            let m_src = MangaDexSource::new();
+            println!(
+                "  - {:<10} {:<35} [Lang: {} | Safe | Tags: {}]",
+                m_src.id(),
+                m_src.name(),
+                m_src.languages().join(", "),
+                m_src.tags().join(", ")
+            );
 
             let custom_dir = PathBuf::from("./custom_sources");
             if custom_dir.exists() {
@@ -509,12 +595,34 @@ async fn main() -> Result<()> {
                         let path = entry.path();
                         if path.extension().map_or(false, |ext| ext == "json") {
                             if let Ok(js_src) = JsonSource::from_file(&path) {
-                                println!("  - {:<10} ({} - Dynamic JSON)", js_src.id(), js_src.name());
+                                let nsfw_tag = if js_src.is_nsfw() { "🔞 18+ Adult" } else { "Safe" };
+                                println!(
+                                    "  - {:<10} {:<35} [Lang: {} | {} | Tags: {}]",
+                                    js_src.id(),
+                                    js_src.name(),
+                                    js_src.languages().join(", "),
+                                    nsfw_tag,
+                                    js_src.tags().join(", ")
+                                );
                             }
                         }
                     }
                 }
             }
+        }
+        Commands::Genres => {
+            let source = get_source_from_cli(&cli.source, cli.custom_source.as_ref());
+            let genres = source.available_genres();
+            let sort_orders = source.available_sort_orders();
+            println!("Available Genres & Categories for {}: ({} genres)\n", source.name(), genres.len());
+            for (idx, g) in genres.iter().enumerate() {
+                println!("  {:<3}. {:<25} (ID: {})", idx + 1, g.name, g.id);
+            }
+            println!("\nAvailable Sort Orders:");
+            for (idx, s) in sort_orders.iter().enumerate() {
+                println!("  {:<3}. {:<35} (ID: {})", idx + 1, s.name, s.id);
+            }
+            println!();
         }
         Commands::Search { query } => {
             let source = get_source_from_cli(&cli.source, cli.custom_source.as_ref());
@@ -525,13 +633,93 @@ async fn main() -> Result<()> {
             } else {
                 println!("\nFound {} results:\n", results.len());
                 for (idx, m) in results.iter().enumerate() {
-                    println!("{}. {} (ID: {})", idx + 1, m.title, m.id);
-                    if let Some(desc) = &m.description {
-                        let short_desc: String = desc.chars().take(80).collect();
-                        println!("   {}", short_desc.replace('\n', " "));
-                    }
-                    println!();
+                    print_manga_details(idx, m);
                 }
+            }
+        }
+        Commands::Filter {
+            query,
+            genre,
+            order,
+            status,
+            manga_type,
+            nsfw,
+        } => {
+            let source = get_source_from_cli(&cli.source, cli.custom_source.as_ref());
+            let filter = MangaFilter {
+                query,
+                genre,
+                genres: None,
+                status,
+                order_by: Some(order),
+                manga_type,
+                demographic: None,
+                language: None,
+                is_nsfw: if nsfw { Some(true) } else { None },
+                page: None,
+                limit: Some(25),
+            };
+
+            println!("Filtering and sorting manga on {}...", source.name());
+            let results = source.filter_manga(&filter).await?;
+            if results.is_empty() {
+                println!("No manga found matching the filter criteria.");
+            } else {
+                println!("\nFound {} results:\n", results.len());
+                for (idx, m) in results.iter().enumerate() {
+                    print_manga_details(idx, m);
+                }
+            }
+        }
+        Commands::Info { id } => {
+            let source = get_source_from_cli(&cli.source, cli.custom_source.as_ref());
+            println!("Fetching full details for Manga ID '{}' from {}...", id, source.name());
+            if let Some(manga) = source.get_manga_details(&id).await? {
+                println!("\n=======================================================");
+                println!("📖 Title: {}", manga.title);
+                if let Some(alt) = &manga.alt_titles {
+                    println!("🔤 Alternative Titles: {}", alt.join(" | "));
+                }
+                if let Some(cover) = &manga.cover_url {
+                    println!("🖼️ Cover Art: {}", cover);
+                }
+                if let Some(r) = manga.rating {
+                    let count_str = manga.rating_count.map(|c| format!(" ({} votes)", c)).unwrap_or_default();
+                    println!("⭐ Rating: {:.1}/5{}", r, count_str);
+                }
+                if let Some(v) = &manga.views {
+                    println!("👁️ Views / Rank: {}", v);
+                }
+                if let Some(a) = &manga.author {
+                    println!("👤 Author: {}", a);
+                }
+                if let Some(ar) = &manga.artist {
+                    println!("🎨 Artist: {}", ar);
+                }
+                if let Some(s) = &manga.status {
+                    println!("🟢 Status: {}", s);
+                }
+                if let Some(t) = &manga.manga_type {
+                    println!("📚 Type: {}", t);
+                }
+                if let Some(y) = &manga.release_year {
+                    println!("📅 Release Year: {}", y);
+                }
+                if manga.is_nsfw {
+                    println!("🔞 Content: 18+ Adult / Mature");
+                }
+                if let Some(g) = &manga.genres {
+                    println!("🏷️ Genres: {}", g.join(", "));
+                }
+                if let Some(t) = &manga.tags {
+                    println!("🔖 Tags: {}", t.join(", "));
+                }
+                if let Some(d) = &manga.description {
+                    println!("\n📝 Synopsis:\n{}", d);
+                }
+                println!("=======================================================\n");
+            } else {
+                println!("Could not fetch details for manga ID '{}'.", id);
             }
         }
         Commands::Chapters { id, lang } => {

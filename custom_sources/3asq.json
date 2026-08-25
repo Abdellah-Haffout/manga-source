@@ -2,22 +2,57 @@
   "id": "3asq",
   "name": "Manga 3asq (العاشق - عربي)",
   "base_url": "https://3asq.online",
+  "languages": [
+    "ar"
+  ],
+  "is_nsfw": false,
+  "tags": [
+    "arabic",
+    "wp-manga",
+    "translated",
+    "manga",
+    "manhwa"
+  ],
   "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
   "search": {
     "url_template": "{base_url}/?s={query}&post_type=wp-manga",
     "method": "GET",
     "regex": {
-      "pattern": "(?s)<div class=\"tab-thumb[^\"]*\">\\s*<a href=\"https://[^/]+/manga/([^/]+)/\"[^>]*>\\s*<img [^>]*(?:src|data-src)=\"([^\"]+)\"[^>]*>.*?<h3 class=\"h4\">\\s*<a [^>]*>([^<]+)</a>",
-      "id_group": 1,
-      "cover_group": 2,
-      "title_group": 3
+      "item_pattern": "split:<div class=\"row c-tabs-item__content\">",
+      "id_regex": "href=\"https?://[^/]+/manga/([^/]+)/\"",
+      "title_regex": "(?s)<h3 class=\"h4\">\\s*<a [^>]*>([^<]+)</a>",
+      "cover_regex": "<img [^>]*(?:src|data-src)=\"([^\"]+)\"",
+      "alt_title_regex": "(?s)mg_alternative.*?<div class=\"summary-content\">\\s*([^<]+)",
+      "status_regex": "(?s)mg_status.*?<div class=\"summary-content\">\\s*([^<]+)",
+      "author_regex": "(?s)mg_author.*?<div class=\"summary-content\">\\s*([^<]+)",
+      "rating_regex": "class=\"score font-meta total_votes\">([0-9.]+)",
+      "views_regex": "<span class=\"views\"><i class=\"fa fa-eye\"></i>\\s*([^<]+)</span>",
+      "latest_chapter_regex": "(?s)latest-chap.*?<span class=\"font-meta chapter\"><a [^>]*>([^<]+)</a>",
+      "updated_at_regex": "<span class=\"timediff\">([^<]+)</span>",
+      "genres_regex": "href=\"https?://[^/]+/manga-genre/[^/]+/\"[^>]*>([^<]+)</a>",
+      "tags_regex": "<span class=\"manga-title-badges[^\"]*\">\\s*(?:<span class=\"text\">)?([^<]+)(?:</span>)?\\s*</span>"
+    }
+  },
+  "latest": {
+    "url_template": "{base_url}/",
+    "method": "GET",
+    "regex": {
+      "item_pattern": "(?s)<div class=\"page-item-detail manga\\s*[^\"]*\">(.*?)</div>\\s*<!-- \\.page-item-detail -->",
+      "id_regex": "href=\"https?://[^/]+/manga/([^/]+)/\"",
+      "title_regex": "(?s)<div class=\"post-title[^\"]*\">.*?<a href=\"https?://[^/]+/manga/[^/]+/\">([^<]+)</a>",
+      "cover_regex": "<img [^>]*(?:src|data-src)=\"([^\"]+)\"",
+      "rating_regex": "class=\"score font-meta total_votes\">([0-9.]+)",
+      "views_regex": "<span class=\"views\"><i class=\"fa fa-eye\"></i>\\s*([^<]+)</span>",
+      "latest_chapter_regex": "<span class=\"chapter font-meta\">\\s*<a[^>]*>\\s*([^<]+)\\s*</a>",
+      "updated_at_regex": "<span class=\"timediff\">([^<]+)</span>",
+      "tags_regex": "<span class=\"manga-title-badges[^\"]*\">\\s*(?:<span class=\"text\">)?([^<]+)(?:</span>)?\\s*</span>"
     }
   },
   "chapters": {
     "url_template": "{base_url}/manga/{manga_id}/ajax/chapters/",
     "method": "POST",
     "regex": {
-      "pattern": "href=\"https://[^/]+/manga/{manga_id}/([^/]+)/\"[^>]*>([\\s\\S]*?)</a>",
+      "pattern": "href=\"https?://[^/]+/manga/{manga_id}/([^/]+)/\"[^>]*>([\\s\\S]*?)</a>",
       "id_group": 1,
       "title_group": 2
     }
